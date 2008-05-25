@@ -16,16 +16,25 @@ RDOC_OPTS = ['--quiet', '--title', "Camping, the Documentation",
     "--main", "README",
     "--inline-source"]
 
+def set_version(name)
+  p = 'lib/camping.rb'
+  p2 = "camping-#{name}.rb"
+  if File.exists?(p)
+    if File.symlink?(p)
+      File.unlink(p)
+    else
+      STDERR.puts "** #{p} already exists. Remove it and re-run the command"
+      exit 1
+    end
+  end
+  File.symlink(p2, p)
+end
+
 desc "Packages up Camping."
 task :default => [:check]
-task :package => [:clean]
+task :package => [:clean, "version:short"]
 
-task :doc => [:before_doc, :rdoc, :after_doc]
-
-task :before_doc do 
-    mv "lib/camping.rb", "lib/camping-mural.rb"
-    mv "lib/camping-unabridged.rb", "lib/camping.rb"
-end
+task :doc => ["version:long", :rdoc, :rdoc_extras]
 
 Rake::RDocTask.new do |rdoc|
     rdoc.rdoc_dir = 'doc/rdoc'
@@ -36,12 +45,24 @@ Rake::RDocTask.new do |rdoc|
     rdoc.rdoc_files.add ['README', 'CHANGELOG', 'COPYING', 'lib/camping.rb', 'lib/camping/*.rb']
 end
 
-task :after_doc do
-    mv "lib/camping.rb", "lib/camping-unabridged.rb"
-    mv "lib/camping-mural.rb", "lib/camping.rb"
-    cp "extras/Camping.gif", "doc/rdoc/"
-    cp "extras/permalink.gif", "doc/rdoc/"
+task :rdoc_extras do
+  cp "extras/Camping.gif", "doc/rdoc/"
+  cp "extras/permalink.gif", "doc/rdoc/"
+end
+
+desc "Sets development environment"
+task :devel => ['version:long']
+
+namespace :version do
+  task :short do set_version('shortshort') end
+  task :long do set_version('unabridged') end
+end
+
+namespace :publish do
+  desc "Copies rdoc to rubyforge"
+  task :rdoc => "doc" do
     sh %{scp -r doc/rdoc/* #{ENV['USER']}@rubyforge.org:/var/www/gforge-projects/camping/}
+  end
 end
 
 spec =
@@ -130,13 +151,13 @@ end
 
 task :ruby_diff do
   require 'ruby2ruby'
-  c = Ruby2Ruby.translate(File.read("lib/camping.rb"))
+  c = Ruby2Ruby.translate(File.read("lib/camping-shortshort.rb"))
   n = Ruby2Ruby.translate(File.read("lib/camping-unabridged.rb"))
   
   File.open(".camping-unabridged.rb.rb","w"){|f|f<<c}
-  File.open(".camping.rb.rb","w"){|f|f<<n}
+  File.open(".camping-shortshort.rb.rb","w"){|f|f<<n}
   
-  sh "diff -u .camping-unabridged.rb.rb .camping.rb.rb | less"
+  sh "diff -u .camping-unabridged.rb.rb .camping-shortshort.rb.rb | less"
 end
 
 task :check => ["check:valid", "check:size", "check:lines"]
@@ -145,17 +166,21 @@ namespace :check do
   desc "Check source code validity"
   task :valid do
     ruby "-rubygems", "-w", "lib/camping-unabridged.rb"
-    ruby "-rubygems", "-w", "lib/camping.rb"
+    ruby "-rubygems", "-w", "lib/camping-shortshort.rb"
   end
 
   SIZE_LIMIT = 4096
   desc "Compare camping sizes to unabridged"
   task :size do
     FileList["lib/camping*.rb"].each do |path|
-      s = File.size(path)
-      puts "%21s : % 6d % 4d%" % [File.basename(path), s, (100 * s / SIZE_LIMIT)]
+      if File.symlink?(path)
+        puts "%21s : -> %s" % [File.basename(path), File.readlink(path)]
+      else
+        s = File.size(path)
+        puts "%21s : % 6d % 4d%" % [File.basename(path), s, (100 * s / SIZE_LIMIT)]
+      end
     end
-    if File.size("lib/camping.rb") > SIZE_LIMIT
+    if File.size("lib/camping-shortshort.rb") > SIZE_LIMIT
       STDERR.puts "lib/camping.rb: file is too big (> #{SIZE_LIMIT})"
     end
   end
@@ -163,9 +188,9 @@ namespace :check do
   desc "Verify that line lenght doesn't exceed 80 chars for camping.rb"
   task :lines do
     i = 1
-    File.open("lib/camping.rb").each_line do |line|
+    File.open("lib/camping-shortshort.rb").each_line do |line|
       if line.size > 81 # 1 added for \n
-        STDERR.puts "lib/camping.rb:#{i}: line too long (#{line[-10..-1].inspect})"
+        STDERR.puts "lib/camping-shortshort.rb:#{i}: line too long (#{line[-10..-1].inspect})"
       end
       i += 1
     end
