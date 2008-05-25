@@ -28,13 +28,7 @@
 # http://rubyforge.org/projects/mongrel  Mongrel comes with examples
 # in its <tt>examples/camping</tt> directory. 
 #
-%w[tempfile uri rack].map { |l| require l }
-
-class Object #:nodoc:
-  def meta_def(m,&b) #:nodoc:
-    (class<<self;self end).send(:define_method,m,&b)
-  end
-end
+%w[tempfile uri rack markaby].map { |l| require l }
 
 # == Camping 
 #
@@ -637,6 +631,16 @@ module Camping
       def Y;self;end
   end
  
-  autoload :Mab, 'camping/mab'
+  # The Mab class wraps Markaby, allowing it to run methods from Camping::Views
+  # and also to replace :href, :action and :src attributes in tags by prefixing the root
+  # path.
+  class Mab < Markaby::Builder
+    include Views
+    def tag!(*g,&b)
+      h=g[-1]
+      [:href,:action,:src].map{|a|(h[a]=self/h[a])rescue 0}
+      super
+    end
+  end
 end
 
