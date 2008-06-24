@@ -28,7 +28,7 @@
 # http://rubyforge.org/projects/mongrel  Mongrel comes with examples
 # in its <tt>examples/camping</tt> directory. 
 #
-%w[tempfile uri rack markaby].map { |l| require l }
+%w[tempfile uri stringio rack markaby].map { |l| require l }
 
 # == Camping 
 #
@@ -394,21 +394,26 @@ module Camping
     #       r *Blog.get(:NotFound, @headers.REQUEST_URI)
     #     end
     #   end
-    #
     def to_a
+      @response.body = (@body.respond_to?(:each) ? @body : '')
+      @response.status = @status
+      @response.headers.merge!(@headers)
+      @cookies.each do |k, v|
+        v = {:value => v, :path => self / "/"} if String===v
+        @response.set_cookie(k, v) if @request.cookies[k] != v
+      end
       @response.to_a
     end
     
-    def initialize(env) #:nodoc:
+    def initialize(env) #:nodoc: 
       @request, @response, @env =
       Rack::Request.new(env), Rack::Response.new, env
       @root, @input, @cookies,
-      @headers, @body, @status =
+      @headers, @status =
       @request.script_name.sub(/\/$/,''), 
       H[@request.params], H[@request.cookies],
-      @response.headers, @response.body,
-      @response.status
-      
+      @response.headers, @response.status
+            
       @input.each do |k, v|
         if k[-2..-1] == "[]"
           @input[k[0..-3]] = @input.delete(k)
@@ -424,13 +429,8 @@ module Camping
     # See http://code.whytheluckystiff.net/camping/wiki/BeforeAndAfterOverrides for more
     # on before and after overrides with Camping.
     def service(*a)
-      o = @cookies.dup
-      @response.body = send(@request.request_method.downcase, *a) || @body
-      @response.status = @status
-      @response.headers.merge!(@headers)
-      @cookies.each do |k, v|
-        @response.set_cookie(k, v) if o[k] != v
-      end
+      r = catch(:halt){send(@request.request_method.downcase, *a)}
+      @body ||= r 
       self
     end
   end
@@ -499,6 +499,7 @@ module Camping
       #
       # So, define your catch-all controllers last.
       def D(p, m)
+        p = '/' if !p || !p[0]
         r.map { |k|
           k.urls.map { |x|
             return (k.instance_method(m) rescue nil) ?
@@ -517,6 +518,7 @@ module Camping
       #
       # Anyway, if you are calling the URI dispatcher from outside of a Camping server, you'll
       # definitely need to call this at least once to set things up.
+      N = H.new { |_,x| x.downcase }.merge! "N" => '(\d+)', "X" => '(\w+)', "Index" => ''
       def M
         def M #:nodoc:
         end
@@ -524,7 +526,7 @@ module Camping
           k=const_get(c)
           k.send :include,C,Base,Helpers,Models
           @r=[k]+r if r-[k]==r
-          k.meta_def(:urls){["/#{c.downcase}"]}if !k.respond_to?:urls
+          k.meta_def(:urls){["/#{c.scan(/.[^A-Z]*/).map(&N.method(:[]))*'/'}"]}if !k.respond_to?:urls
         }
       end
     end

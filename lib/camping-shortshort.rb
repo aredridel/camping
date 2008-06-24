@@ -1,4 +1,4 @@
-%w[tempfile uri rack].map{|l|require l};class Object;def meta_def m,&b
+%w[tempfile uri stringio rack].map{|l|require l};class Object;def meta_def m,&b
 (class<<self;self end).send:define_method,m,&b end end;module Camping;C=self
 S=IO.read(__FILE__)rescue nil;P="<h1>Cam\ping Problem!</h1><h2>%s</h2>"
 class H<Hash
@@ -20,24 +20,29 @@ to_s;end;def r404 p=env.PATH;r 404,P%"#{p} not found"end;def r500 k,m,x
 r 500,P%"#{k}.#{m}"+"<h3>#{x.class} #{x.message}: <ul>#{x.
 backtrace.map{|b|"<li>#{b}</li>"}}</ul></h3>"end;def r501 m=@method
 r 501,P%"#{m.upcase} not implemented"end;def to_a
+@response.body=@body.respond_to?(:each)?@body:""
+@response.status=@status;@response.headers.merge!(@headers)
+@cookies.each{|k,v|v={:value=>v,:path=>self/"/"} if String===v
+@response.set_cookie(k,v) if @request.cookies[k]!=v}
 @response.to_a;end;def initialize(env)
 @request,@response,@env=Rack::Request.new(env),Rack::Response.new,env
-@root,@input,@cookies,@headers,@body,@status =
+@root,@input,@cookies,@headers,@status=
 @request.script_name.sub(/\/$/,''),H[@request.params],
-H[@request.cookies],@response.headers,@response.body,
-@response.status;@input.each{|k,v|if k[-2..-1]=="[]";@input[k[0..-3]]=
-@input.delete(k)elsif k=~/(.*)\[([^\]]+)\]$/;(@input[$1]||=H[])[$2]=
-@input.delete(k)end};end;def service *a;o=@cookies.dup;@response.body=
-(send(@request.request_method.downcase,*a)||@body);@response.status=@status;
-@response.headers.merge!(@headers);@cookies.each{|k,v|@response.
-set_cookie(k,v)unless(o[k]==v)};self;end
-end;X=module Controllers;@r=[];class<<self;def r;@r end;def R *u;r=@r
+H[@request.cookies],@response.headers,@response.status
+@input.each{|k,v|if k[-2..-1]=="[]";@input[k[0..-3]]=
+@input.delete(k)elsif k=~/(.*)\[([^\]]+)\]$/
+(@input[$1]||=H[])[$2]=@input.delete(k)end};end;def service *a
+r=catch(:halt){send(@request.request_method.downcase,*a)};@body||=r
+self;end;end;X=module Controllers;@r=[];class<<self;def r;@r end;def R *u;r=@r
 Class.new{meta_def(:urls){u};meta_def(:inherited){|x|r<<x}}end
-def D p,m;r.map{|k|k.urls.map{|x|return(k.instance_method(m)rescue nil)?
-[k,m,*$~[1..-1]]:[I,'r501',m]if p=~/^#{x}\/?$/}};[I,'r404',p]
-end;def M;def M;end;constants.map{|c|k=const_get(c)
+def D p,m;p='/'if !p||!p[0]
+r.map{|k|k.urls.map{|x|return(k.instance_method(m)rescue nil)?
+[k,m,*$~[1..-1]]:[I,'r501',m]if p=~/^#{x}\/?$/}};[I,'r404',p] end
+N=H.new{|_,x|x.downcase}.merge! "N"=>'(\d+)',"X"=>'(\w+)',"Index"=>''
+def M;def M;end;constants.map{|c|k=const_get(c)
 k.send:include,C,Base,Helpers,Models;@r=[k]+r if r-[k]==r
-k.meta_def(:urls){["/#{c.downcase}"]}if !k.respond_to?:urls}end end;class I<R()
+k.meta_def(:urls){["/#{c.scan(/.[^A-Z]*/).map(&N.method(:[]))*'/'}"]
+}if !k.respond_to?:urls}end end;class I<R()
 end;self end;class<<self;def goes m
 eval S.gsub(/Camping/,m.to_s),TOPLEVEL_BINDING end;def call e
 X.M;e=H[e.to_hash];k,m,*a=X.D e.PATH_INFO,(e.REQUEST_METHOD||'get').downcase
