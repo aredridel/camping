@@ -77,7 +77,7 @@ end
 
 # Default db
 if conf.database.nil? and db_path
-  conf.database = {:adapter => 'sqlite3', :database => db_path} if db_path
+  conf.database = {:adapter => 'sqlite3', :database => db_path, :timeout => 15000 } if db_path
 end
 
 
