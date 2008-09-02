@@ -6,7 +6,6 @@ require 'ostruct'
 require 'stringio'
 require 'yaml'
 
-$:.unshift File.dirname(__FILE__) + "/../lib"
 require 'camping'
 require 'camping/server'
 
@@ -48,8 +47,7 @@ opts = OptionParser.new do |opts|
   
     # Another typical switch to print the version.
     opts.on_tail("-v", "--version", "Show version") do
-        class << Gem; attr_accessor :loaded_specs; end
-        puts Gem.loaded_specs['camping'].version
+				puts "2.0"
         exit
     end
 end
