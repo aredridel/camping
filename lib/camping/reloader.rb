@@ -1,4 +1,5 @@
 module Camping
+require 'logger'
 # == The Camping Reloader
 #
 # Camping apps are generally small and predictable.  Many Camping apps are
