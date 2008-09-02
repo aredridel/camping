@@ -137,15 +137,6 @@ class Reloader
         def conditional_connect
             # If database models are present, `autoload?` will return nil.
             unless Camping::Models.autoload? :Base
-                if @database and @database[:adapter] == 'sqlite3'
-                    begin
-                        require 'sqlite3_api'
-                    rescue LoadError
-                        puts "!! Your SQLite3 adapter isn't a compiled extension."
-                        abort "!! Please check out http://code.whytheluckystiff.net/camping/wiki/BeAlertWhenOnSqlite3 for tips."
-                    end
-                end
-
                 case @log
                 when Logger
                     Camping::Models::Base.logger = @log
