@@ -144,9 +144,14 @@ class Reloader
                     require 'logger'
                     Camping::Models::Base.logger = Logger.new(@log == "-" ? STDOUT : @log)
                 end
-
-                Camping::Models::Base.establish_connection @database if @database
-
+								
+								begin
+									Camping::Models::Base.connection.disconnect!
+									STDERR.puts "Disconnected"
+								rescue ActiveRecord::ConnectionNotEstablished
+								end
+								STDERR.puts "Connecting"
+								Camping::Models::Base.establish_connection @database if @database
                 if Camping::Models.const_defined?(:Session)
                   Camping::Models::Session.create_schema
                 end
